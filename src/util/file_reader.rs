@@ -33,7 +33,7 @@ mod tests {
             String::from("10000"),
         ];
 
-        let result = to_string_vector("test_inputs/day_1_part_1.txt").unwrap();
+        let result = to_string_vector("test_inputs/example_file.txt").unwrap();
 
         assert_eq!(result, expected);
     }

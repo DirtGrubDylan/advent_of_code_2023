@@ -46,6 +46,7 @@ where
         Point2d { x, y }
     }
 
+    #[must_use]
     pub fn add_t(&self, other: (T, T)) -> Point2d<T> {
         Point2d {
             x: self.x + other.0,

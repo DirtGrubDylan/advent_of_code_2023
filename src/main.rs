@@ -15,6 +15,12 @@ fn run_day(day: u32) {
     }
 }
 
+/// Gets the user input.
+///
+/// # Panics
+///
+/// If line couldn't be flushed and/or stdin couldn't be read/parsed.
+#[must_use]
 pub fn get_user_input() -> u32 {
     let mut input_buffer = String::new();
 

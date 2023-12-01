@@ -15,6 +15,7 @@ fn run_day(day: u32) {
     }
 }
 
+#[must_use]
 pub fn get_user_input() -> u32 {
     let mut input_buffer = String::new();
 

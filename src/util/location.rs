@@ -5,5 +5,6 @@ pub trait Location<RHS = Self> {
 
     fn distance_to(&self, other: &RHS) -> f64;
 
+    #[must_use]
     fn add(&self, other: &RHS) -> Self;
 }

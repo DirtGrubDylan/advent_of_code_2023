@@ -1,4 +1,5 @@
 use std::ops::{Div, Mul, Rem};
+use std::mem;
 
 pub fn gcd<T>(first: T, second: T) -> T
 where
@@ -8,9 +9,7 @@ where
     let mut min = second;
 
     if min > max {
-        let val = max;
-        max = min;
-        min = val;
+        mem::swap(&mut max, &mut min);
     }
 
     loop {

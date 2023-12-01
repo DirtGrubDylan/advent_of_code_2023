@@ -1,6 +1,11 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+/// Takes a file and returns it's contents as a vector of strings.
+///
+/// # Errors
+///
+/// If file doesn't exist and/or the line cannot be read.
 pub fn to_string_vector(file_name: &str) -> Result<Vec<String>, String> {
     let file = BufReader::new(File::open(file_name).expect("File not found!"));
 
@@ -20,16 +25,16 @@ mod tests {
             String::from("1000"),
             String::from("2000"),
             String::from("3000"),
-            String::from(""),
+            String::new(),
             String::from("4000"),
-            String::from(""),
+            String::new(),
             String::from("5000"),
             String::from("6000"),
-            String::from(""),
+            String::new(),
             String::from("7000"),
             String::from("8000"),
             String::from("9000"),
-            String::from(""),
+            String::new(),
             String::from("10000"),
         ];
 

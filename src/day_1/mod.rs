@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_currate_line() {
-        let input = vec![
+        let input = [
             "two1nine",
             "eightwothree",
             "abcone2threexyz",

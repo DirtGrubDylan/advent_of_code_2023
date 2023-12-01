@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_from_str_ok() {
-        let inputs = vec!["1abc2", "pqr3stu8vwx", "a1b2c3d4e5f", "treb7uchet"];
+        let inputs = ["1abc2", "pqr3stu8vwx", "a1b2c3d4e5f", "treb7uchet"];
 
         let expected = vec![
             CalibrationValue(12),

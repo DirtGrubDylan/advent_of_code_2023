@@ -5,7 +5,11 @@ use std::io::{BufRead, BufReader};
 ///
 /// # Errors
 ///
-/// If file doesn't exist and/or the line cannot be read.
+/// N/A
+///
+/// # Panics
+///
+/// If line couldn't be read and/or file doesn't exist.
 pub fn to_string_vector(file_name: &str) -> Result<Vec<String>, String> {
     let file = BufReader::new(File::open(file_name).expect("File not found!"));
 

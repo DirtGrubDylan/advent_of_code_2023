@@ -6,7 +6,7 @@ mod day_2;
 use std::io::{self, Write};
 
 fn print_seperator() {
-    println!("-------------------------------");
+    println!("-------------------------------------");
 }
 
 fn run_day(day: u32) {

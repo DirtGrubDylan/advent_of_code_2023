@@ -2,17 +2,19 @@ pub mod util;
 
 mod day_1;
 mod day_2;
+mod day_3;
 
 use std::io::{self, Write};
 
 fn print_seperator() {
-    println!("-------------------------------");
+    println!("-------------------------------------");
 }
 
 fn run_day(day: u32) {
     match day {
         1 => day_1::run(),
         2 => day_2::run(),
+        3 => day_3::run(),
         _ => unimplemented!("I haven't done that day yet :("),
     }
 }

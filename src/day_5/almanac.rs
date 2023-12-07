@@ -31,11 +31,13 @@ impl Almanac {
     ///
     /// If there isn't 7 tables defined.
     pub fn new(input: &[String]) -> Self {
-        let tables: Vec<Table> = input.split(|row| row.is_empty()).map(Table::new).collect();
+        let tables: Vec<Table> = input.split(String::is_empty).map(Table::new).collect();
 
-        if tables.len() != 7 {
-            panic!("Input only had {} tables defined.", tables.len());
-        }
+        assert!(
+            !(tables.len() != 7),
+            "Input only had {} tables defined.",
+            tables.len()
+        );
 
         Almanac {
             seed_to_soil: tables[0].clone(),
@@ -190,7 +192,7 @@ impl FromStr for Map {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let values: Vec<Result<u64, _>> = s.split(' ').map(|value| value.parse()).collect();
+        let values: Vec<Result<u64, _>> = s.split(' ').map(str::parse).collect();
 
         if values.len() != 3 {
             return Err(format!("{s} does not have 3 distinct values."));
@@ -310,25 +312,25 @@ mod tests {
         let table = Table::new(&input);
 
         let expected_0 = 0;
-        let expected_49 = 49;
-        let expected_50 = 52;
-        let expected_97 = 99;
-        let expected_98 = 50;
-        let expected_99 = 51;
+        let expected_1 = 49;
+        let expected_2 = 52;
+        let expected_3 = 99;
+        let expected_4 = 50;
+        let expected_5 = 51;
 
         let result_0 = table.value_of(0);
-        let result_49 = table.value_of(49);
-        let result_50 = table.value_of(50);
-        let result_97 = table.value_of(97);
-        let result_98 = table.value_of(98);
-        let result_99 = table.value_of(99);
+        let result_1 = table.value_of(49);
+        let result_2 = table.value_of(50);
+        let result_3 = table.value_of(97);
+        let result_4 = table.value_of(98);
+        let result_5 = table.value_of(99);
 
         assert_eq!(result_0, expected_0);
-        assert_eq!(result_49, expected_49);
-        assert_eq!(result_50, expected_50);
-        assert_eq!(result_97, expected_97);
-        assert_eq!(result_98, expected_98);
-        assert_eq!(result_99, expected_99);
+        assert_eq!(result_1, expected_1);
+        assert_eq!(result_2, expected_2);
+        assert_eq!(result_3, expected_3);
+        assert_eq!(result_4, expected_4);
+        assert_eq!(result_5, expected_5);
     }
 
     #[test]

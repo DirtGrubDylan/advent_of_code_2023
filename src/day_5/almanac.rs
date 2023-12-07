@@ -34,7 +34,7 @@ impl Almanac {
         let tables: Vec<Table> = input.split(String::is_empty).map(Table::new).collect();
 
         assert!(
-            !(tables.len() != 7),
+            tables.len() == 7,
             "Input only had {} tables defined.",
             tables.len()
         );

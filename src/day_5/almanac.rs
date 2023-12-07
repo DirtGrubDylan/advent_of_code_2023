@@ -31,11 +31,13 @@ impl Almanac {
     ///
     /// If there isn't 7 tables defined.
     pub fn new(input: &[String]) -> Self {
-        let tables: Vec<Table> = input.split(|row| row.is_empty()).map(Table::new).collect();
+        let tables: Vec<Table> = input.split(String::is_empty).map(Table::new).collect();
 
-        if tables.len() != 7 {
-            panic!("Input only had {} tables defined.", tables.len());
-        }
+        assert!(
+            tables.len() == 7,
+            "Input only had {} tables defined.",
+            tables.len()
+        );
 
         Almanac {
             seed_to_soil: tables[0].clone(),
@@ -58,13 +60,35 @@ impl Almanac {
 
         self.humidity_to_location.value_of(humidity_id)
     }
+
+    pub fn lowest_location_from_seed_ranges(&self, seed_ranges: &[(u64, u64)]) -> u64 {
+        let soil_id_ranges = self.seed_to_soil.mapped_ranges(seed_ranges);
+        let fertilizer_id_ranges = self.soil_to_fertilizer.mapped_ranges(&soil_id_ranges);
+        let water_id_ranges = self
+            .fertilizer_to_water
+            .mapped_ranges(&fertilizer_id_ranges);
+        let light_id_ranges = self.water_to_light.mapped_ranges(&water_id_ranges);
+        let temperature_id_ranges = self.light_to_temperature.mapped_ranges(&light_id_ranges);
+        let humidity_id_ranges = self
+            .temperature_to_humidity
+            .mapped_ranges(&temperature_id_ranges);
+
+        self.humidity_to_location
+            .mapped_ranges(&humidity_id_ranges)
+            .into_iter()
+            .map(|(start, _)| start)
+            .min()
+            .unwrap()
+    }
 }
 
 impl Table {
     fn new(input: &[String]) -> Self {
         let title = input[0].replace(" map:", "");
 
-        let mappings = input[1..].iter().map(|row| row.parse().unwrap()).collect();
+        let mut mappings: Vec<Map> = input[1..].iter().map(|row| row.parse().unwrap()).collect();
+
+        mappings.sort_by(|a, b| a.source_start.cmp(&b.source_start));
 
         Table { title, mappings }
     }
@@ -75,13 +99,73 @@ impl Table {
             .fold(None, |acc, map| acc.or(map.value_of(input)))
             .unwrap_or(input)
     }
+
+    fn mapped_ranges(&self, inputs: &[(u64, u64)]) -> Vec<(u64, u64)> {
+        let mut result: Vec<(u64, u64)> = inputs
+            .iter()
+            .flat_map(|(start, range)| self.mapped_range(*start, *range))
+            .collect();
+
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+
+        result
+    }
+
+    fn mapped_range(&self, input_start: u64, input_range: u64) -> Vec<(u64, u64)> {
+        let input_upper_bound = input_start + input_range;
+
+        let mut result = Vec::new();
+        let mut next_start = input_start;
+        let mut next_range = input_range;
+
+        for map in &self.mappings {
+            let next_start_destination = map.value_of(next_start).unwrap_or(next_start);
+            let map_upper_bound = map.source_start + map.range;
+
+            if next_range == 0 {
+                break;
+            }
+
+            if map.contains(next_start) {
+                let temp_range = next_range.min(map_upper_bound - next_start);
+
+                result.push((next_start_destination, temp_range));
+
+                next_range -= temp_range;
+                next_start += temp_range;
+            } else if map.contains(input_upper_bound - 1) {
+                let beginning_range = map.source_start - next_start;
+                next_range -= beginning_range;
+
+                result.push((next_start, beginning_range));
+                result.push((map.destination_start, next_range));
+
+                next_range = 0;
+                next_start = input_upper_bound;
+            } else if map.is_contained_by_range(next_start, next_range) {
+                let beginning_range = map.source_start - next_start;
+
+                result.push((next_start, beginning_range));
+                result.push((map.destination_start, map.range));
+
+                next_range -= beginning_range + map.range;
+                next_start = map_upper_bound;
+            }
+        }
+
+        if next_range != 0 {
+            result.push((next_start, next_range));
+        }
+
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+
+        result
+    }
 }
 
 impl Map {
     fn value_of(&self, input: u64) -> Option<u64> {
-        let source_upper_bound = self.source_start + self.range;
-
-        if (self.source_start..source_upper_bound).contains(&input) {
+        if self.contains(input) {
             let input_delta_from_start = input - self.source_start;
 
             Some(self.destination_start + input_delta_from_start)
@@ -89,13 +173,26 @@ impl Map {
             None
         }
     }
+
+    fn contains(&self, source_value: u64) -> bool {
+        let source_upper_bound = self.source_start + self.range;
+
+        (self.source_start..source_upper_bound).contains(&source_value)
+    }
+
+    fn is_contained_by_range(&self, input_start: u64, input_range: u64) -> bool {
+        let source_upper_bound = self.source_start + self.range;
+        let input_upper_bound = input_start + input_range;
+
+        (input_start <= self.source_start) && (source_upper_bound <= input_upper_bound)
+    }
 }
 
 impl FromStr for Map {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let values: Vec<Result<u64, _>> = s.split(' ').map(|value| value.parse()).collect();
+        let values: Vec<Result<u64, _>> = s.split(' ').map(str::parse).collect();
 
         if values.len() != 3 {
             return Err(format!("{s} does not have 3 distinct values."));
@@ -114,8 +211,6 @@ impl FromStr for Map {
 
 #[cfg(test)]
 mod tests {
-    use crate::day_5::almanac;
-
     use super::*;
 
     #[test]
@@ -146,6 +241,11 @@ mod tests {
             title: "soil-to-fertilizer".to_string(),
             mappings: vec![
                 Map {
+                    source_start: 0,
+                    destination_start: 39,
+                    range: 15,
+                },
+                Map {
                     source_start: 15,
                     destination_start: 0,
                     range: 37,
@@ -154,11 +254,6 @@ mod tests {
                     source_start: 52,
                     destination_start: 37,
                     range: 2,
-                },
-                Map {
-                    source_start: 0,
-                    destination_start: 39,
-                    range: 15,
                 },
             ],
         };
@@ -217,25 +312,25 @@ mod tests {
         let table = Table::new(&input);
 
         let expected_0 = 0;
-        let expected_49 = 49;
-        let expected_50 = 52;
-        let expected_97 = 99;
-        let expected_98 = 50;
-        let expected_99 = 51;
+        let expected_1 = 49;
+        let expected_2 = 52;
+        let expected_3 = 99;
+        let expected_4 = 50;
+        let expected_5 = 51;
 
         let result_0 = table.value_of(0);
-        let result_49 = table.value_of(49);
-        let result_50 = table.value_of(50);
-        let result_97 = table.value_of(97);
-        let result_98 = table.value_of(98);
-        let result_99 = table.value_of(99);
+        let result_1 = table.value_of(49);
+        let result_2 = table.value_of(50);
+        let result_3 = table.value_of(97);
+        let result_4 = table.value_of(98);
+        let result_5 = table.value_of(99);
 
         assert_eq!(result_0, expected_0);
-        assert_eq!(result_49, expected_49);
-        assert_eq!(result_50, expected_50);
-        assert_eq!(result_97, expected_97);
-        assert_eq!(result_98, expected_98);
-        assert_eq!(result_99, expected_99);
+        assert_eq!(result_1, expected_1);
+        assert_eq!(result_2, expected_2);
+        assert_eq!(result_3, expected_3);
+        assert_eq!(result_4, expected_4);
+        assert_eq!(result_5, expected_5);
     }
 
     #[test]
@@ -290,5 +385,85 @@ mod tests {
         assert_eq!(result_seed_14, expected_seed_14);
         assert_eq!(result_seed_55, expected_seed_55);
         assert_eq!(result_seed_13, expected_seed_13);
+    }
+
+    #[test]
+    fn test_table_mapped_range() {
+        let input = [
+            "temp title".to_string(),
+            "52 50 48".to_string(),
+            "50 98 2".to_string(),
+        ];
+
+        let table = Table::new(&input);
+
+        let out_of_range_lower = (0, 50);
+        let out_of_range_upper = (100, 50);
+        let within_lower_range = (50, 26);
+        let partial_within_lower_range = (45, 31);
+        let partial_within_both = (75, 25);
+        let contains_both = (0, 150);
+        let contains_upper = (99, 27);
+
+        let expected_out_of_range_lower = vec![(0, 50)];
+        let expected_out_of_range_upper = vec![(100, 50)];
+        let expected_within_lower_range = vec![(52, 26)];
+        let expected_partial_within_lower_range = vec![(45, 5), (52, 26)];
+        let expected_partial_within_both = vec![(50, 2), (77, 23)];
+        let expected_contains_both = vec![(0, 50), (50, 2), (52, 48), (100, 50)];
+        let expected_contains_upper = vec![(51, 1), (100, 26)];
+
+        let result_out_of_range_lower =
+            table.mapped_range(out_of_range_lower.0, out_of_range_lower.1);
+        let result_out_of_range_upper =
+            table.mapped_range(out_of_range_upper.0, out_of_range_upper.1);
+        let result_within_lower_range =
+            table.mapped_range(within_lower_range.0, within_lower_range.1);
+        let result_partial_within_lower_range =
+            table.mapped_range(partial_within_lower_range.0, partial_within_lower_range.1);
+        let result_partial_within_both =
+            table.mapped_range(partial_within_both.0, partial_within_both.1);
+        let result_contains_both = table.mapped_range(contains_both.0, contains_both.1);
+        let result_contains_upper = table.mapped_range(contains_upper.0, contains_upper.1);
+
+        assert_eq!(result_out_of_range_lower, expected_out_of_range_lower);
+        assert_eq!(result_out_of_range_upper, expected_out_of_range_upper);
+        assert_eq!(result_within_lower_range, expected_within_lower_range);
+        assert_eq!(
+            result_partial_within_lower_range,
+            expected_partial_within_lower_range
+        );
+        assert_eq!(result_partial_within_both, expected_partial_within_both);
+        assert_eq!(result_contains_both, expected_contains_both);
+        assert_eq!(result_contains_upper, expected_contains_upper);
+    }
+
+    #[test]
+    fn test_table_mapped_ranges() {
+        let input = [
+            "temp title".to_string(),
+            "0 0 26".to_string(),
+            "75 75 101".to_string(),
+            "180 180 21".to_string(),
+            "250 250 51".to_string(),
+        ];
+
+        let table = Table::new(&input);
+
+        let ranges = [(20, 61), (160, 61)];
+
+        let expected = vec![
+            (20, 6),
+            (26, 49),
+            (75, 6),
+            (160, 16),
+            (176, 4),
+            (180, 21),
+            (201, 20),
+        ];
+
+        let result = table.mapped_ranges(&ranges);
+
+        assert_eq!(result, expected);
     }
 }

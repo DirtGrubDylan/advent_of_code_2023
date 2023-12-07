@@ -12,7 +12,7 @@ pub fn run() {
     let almanac = Almanac::new(&input[2..]);
 
     println!("Day 5 Part 1: {:?}", part_1(&seeds, &almanac));
-    println!("Day 5 Part 2: {:?}", part_2());
+    println!("Day 5 Part 2: {:?}", part_2(&seeds, &almanac));
 }
 
 fn get_seed_ids(input: &[String]) -> Vec<u64> {
@@ -31,8 +31,14 @@ fn part_1(seeds: &[u64], almanac: &Almanac) -> u64 {
         .unwrap()
 }
 
-fn part_2() -> u64 {
-    unimplemented!()
+fn part_2(seeds: &[u64], almanac: &Almanac) -> u64 {
+    let seed_ranges: Vec<(u64, u64)> = seeds
+        .chunks_exact(2)
+        .filter(|chunk| chunk.len() == 2)
+        .map(|chunk| (chunk[0], chunk[1]))
+        .collect();
+
+    almanac.lowest_location_from_seed_ranges(&seed_ranges)
 }
 
 #[cfg(test)]
@@ -57,12 +63,16 @@ mod tests {
 
     #[test]
     fn test_part_2() {
-        let _input = to_string_vector("test_inputs/day_5.txt")
+        let input = to_string_vector("test_inputs/day_5.txt")
             .expect("Something went wrong with Day 5 Part 2 Test!");
 
-        let expected = 0;
+        let seeds = get_seed_ids(&input);
 
-        let result = part_2();
+        let almanac = Almanac::new(&input[2..]);
+
+        let expected = 46;
+
+        let result = part_2(&seeds, &almanac);
 
         assert_eq!(result, expected);
     }

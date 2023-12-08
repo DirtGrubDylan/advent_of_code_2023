@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Card {
+    Joker,
     Two,
     Three,
     Four,
@@ -56,17 +57,27 @@ pub enum ScoreType {
 pub struct Hand {
     cards: Vec<Card>,
     pub bid: u32,
-    score_type: ScoreType,
-    pub joker_rule: bool,
+    pub score_type: ScoreType,
+    joker_rule: bool,
 }
 
 impl Hand {
-    pub fn change_joker_rule(&mut self) {
-        self.joker_rule = !self.joker_rule;
-        self.score_type = Self::get_score_type(&self.cards, self.joker_rule);
+    pub fn set_joker_rule(&mut self) {
+        self.joker_rule = true;
+
+        self.cards = self
+            .cards
+            .iter()
+            .map(|card| match card {
+                Card::Jack => Card::Joker,
+                _ => card.clone(),
+            })
+            .collect();
+
+        self.score_type = Self::get_score_type(&self.cards);
     }
 
-    fn get_score_type(cards: &[Card], joker_rule: bool) -> ScoreType {
+    fn get_score_type(cards: &[Card]) -> ScoreType {
         let mut card_counter = HashMap::new();
 
         for card in cards {
@@ -85,7 +96,7 @@ impl Hand {
 
         for (card, count) in card_counter.into_iter() {
             match count {
-                _ if (*card == Card::Jack) && joker_rule => joker_count = count,
+                _ if *card == Card::Joker => joker_count = count,
                 5 => five_of_a_kind = Some(card),
                 4 => four_of_a_kind = Some(card),
                 3 => three_of_a_kind = Some(card),
@@ -134,8 +145,14 @@ impl Hand {
         }
     }
 
-    fn get_cards(input: &str) -> Vec<Card> {
-        input.chars().map(Card::from).collect()
+    fn get_cards(input: &str, joker_rule: bool) -> Vec<Card> {
+        input
+            .chars()
+            .map(|c| match Card::from(c) {
+                Card::Jack if joker_rule => Card::Joker,
+                card => card,
+            })
+            .collect()
     }
 }
 
@@ -150,10 +167,6 @@ impl Ord for Hand {
         for (self_card, other_card) in self.cards.iter().zip(other.cards.iter()) {
             if cmp.is_eq() {
                 cmp = self_card.cmp(other_card);
-
-                if self.joker_rule && (*self_card == Card::Jack) && (self_card != other_card) {
-                    cmp = Ordering::Less;
-                }
             }
         }
 
@@ -173,9 +186,9 @@ impl FromStr for Hand {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let (cards_str, bid_str) = input.split_once(' ').unwrap();
 
-        let cards = Self::get_cards(cards_str);
+        let cards = Self::get_cards(cards_str, false);
         let bid = bid_str.parse().unwrap();
-        let score_type = Self::get_score_type(&cards, false);
+        let score_type = Self::get_score_type(&cards);
 
         Ok(Hand {
             cards,
@@ -216,7 +229,7 @@ mod tests {
             Card::Ace,
         ];
 
-        let result: Vec<Card> = Hand::get_cards(&input);
+        let result: Vec<Card> = Hand::get_cards(&input, false);
 
         assert_eq!(result, expected);
     }
@@ -239,8 +252,8 @@ mod tests {
 
         let result: Vec<ScoreType> = inputs
             .into_iter()
-            .map(Hand::get_cards)
-            .map(|cards| Hand::get_score_type(&cards, false))
+            .map(|input| Hand::get_cards(&input, false))
+            .map(|cards| Hand::get_score_type(&cards))
             .collect();
 
         assert_eq!(result, expected);
@@ -249,7 +262,7 @@ mod tests {
     #[test]
     fn test_hand_get_score_type_with_joker_rule() {
         let inputs = [
-            "32T3K", "T55J5", "KK677", "KTJJT", "QQQJA", "JTTQQ", "32TJK", "3JJJJ",
+            "32T3K", "T55J5", "KK677", "KTJJT", "QQQJA", "JTTQQ", "32TJK", "3JJJJ", "JJ556",
         ];
 
         let expected = vec![
@@ -261,12 +274,13 @@ mod tests {
             ScoreType::FullHouse,
             ScoreType::OnePair,
             ScoreType::FiveOfAKind,
+            ScoreType::FourOfAKind,
         ];
 
         let result: Vec<ScoreType> = inputs
             .into_iter()
-            .map(Hand::get_cards)
-            .map(|cards| Hand::get_score_type(&cards, true))
+            .map(|input| Hand::get_cards(&input, true))
+            .map(|cards| Hand::get_score_type(&cards))
             .collect();
 
         assert_eq!(result, expected);
@@ -309,8 +323,8 @@ mod tests {
         let mut hand_1: Hand = "KK677 28".parse().unwrap();
         let mut hand_2: Hand = "KTJJT 220".parse().unwrap();
 
-        hand_1.change_joker_rule();
-        hand_2.change_joker_rule();
+        hand_1.set_joker_rule();
+        hand_2.set_joker_rule();
 
         assert!(hand_1 < hand_2);
     }
@@ -320,16 +334,17 @@ mod tests {
         let mut hand_1: Hand = "JKKK2 765".parse().unwrap();
         let mut hand_2: Hand = "2222Q 684".parse().unwrap();
         let mut hand_3: Hand = "JJJJJ 684".parse().unwrap();
-        let mut hand_4: Hand = "2222J 684".parse().unwrap();
+        let mut hand_4: Hand = "JJJJ2 684".parse().unwrap();
 
-        hand_1.change_joker_rule();
-        hand_2.change_joker_rule();
-        hand_3.change_joker_rule();
-        hand_4.change_joker_rule();
+        hand_1.set_joker_rule();
+        hand_2.set_joker_rule();
+        hand_3.set_joker_rule();
+        hand_4.set_joker_rule();
 
         assert!(hand_1 < hand_2);
         assert!(hand_2 < hand_3);
         assert!(hand_2 < hand_3);
         assert!(hand_3 < hand_4);
+        assert!(hand_2 < hand_4);
     }
 }

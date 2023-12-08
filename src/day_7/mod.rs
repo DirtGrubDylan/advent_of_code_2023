@@ -16,7 +16,7 @@ pub fn run() {
 fn part_1(hands: &[Hand]) -> u32 {
     let mut hands_sorted = hands.to_vec();
 
-    hands_sorted.sort();
+    hands_sorted.sort_by(|a, b| a.cmp(&b));
 
     hands_sorted
         .into_iter()
@@ -28,9 +28,7 @@ fn part_1(hands: &[Hand]) -> u32 {
 fn part_2(hands: &[Hand]) -> u32 {
     let mut joker_rule_hands = hands.to_vec();
 
-    joker_rule_hands
-        .iter_mut()
-        .for_each(Hand::change_joker_rule);
+    joker_rule_hands.iter_mut().for_each(Hand::set_joker_rule);
 
     part_1(&joker_rule_hands)
 }

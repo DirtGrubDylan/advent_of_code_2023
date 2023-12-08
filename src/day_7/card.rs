@@ -157,7 +157,7 @@ impl Hand {
 impl Ord for Hand {
     fn cmp(&self, other: &Self) -> Ordering {
         assert!(
-            !(self.joker_rule != other.joker_rule),
+            self.joker_rule == other.joker_rule,
             "Both hands have to have the same joker rule"
         );
 

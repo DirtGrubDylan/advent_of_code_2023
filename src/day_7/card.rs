@@ -108,31 +108,29 @@ impl Hand {
 
         if four_of_a_kind.is_some() && (joker_count == 1) {
             ScoreType::FiveOfAKind
-        } else if three_of_a_kind.is_some() && (joker_count == 1) {
+        } else if four_of_a_kind.is_some() {
             ScoreType::FourOfAKind
         } else if three_of_a_kind.is_some() && (joker_count == 2) {
             ScoreType::FiveOfAKind
-        } else if second_pair.is_some() && (joker_count == 1) {
-            ScoreType::FullHouse
-        } else if first_pair.is_some() && (joker_count == 1) {
-            ScoreType::ThreeOfAKind
-        } else if first_pair.is_some() && (joker_count == 2) {
-            ScoreType::FourOfAKind
-        } else if first_pair.is_some() && (joker_count == 3) {
-            ScoreType::FiveOfAKind
-        } else if five_of_a_kind.is_some() {
-            ScoreType::FiveOfAKind
-        } else if four_of_a_kind.is_some() {
+        } else if three_of_a_kind.is_some() && (joker_count == 1) {
             ScoreType::FourOfAKind
         } else if three_of_a_kind.is_some() && first_pair.is_some() {
             ScoreType::FullHouse
         } else if three_of_a_kind.is_some() {
             ScoreType::ThreeOfAKind
+        } else if second_pair.is_some() && (joker_count == 1) {
+            ScoreType::FullHouse
         } else if second_pair.is_some() {
             ScoreType::TwoPair
+        } else if first_pair.is_some() && (joker_count == 3) {
+            ScoreType::FiveOfAKind
+        } else if first_pair.is_some() && (joker_count == 2) {
+            ScoreType::FourOfAKind
+        } else if first_pair.is_some() && (joker_count == 1) {
+            ScoreType::ThreeOfAKind
         } else if first_pair.is_some() {
             ScoreType::OnePair
-        } else if joker_count >= 4 {
+        } else if five_of_a_kind.is_some() || (joker_count >= 4) {
             ScoreType::FiveOfAKind
         } else if joker_count == 3 {
             ScoreType::FourOfAKind

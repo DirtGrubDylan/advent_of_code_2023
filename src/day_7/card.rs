@@ -70,7 +70,7 @@ impl Hand {
             .iter()
             .map(|card| match card {
                 Card::Jack => Card::Joker,
-                _ => card.clone(),
+                _ => *card,
             })
             .collect();
 
@@ -94,7 +94,7 @@ impl Hand {
         let mut first_pair = None;
         let mut joker_count = 0;
 
-        for (card, count) in card_counter.into_iter() {
+        for (card, count) in card_counter {
             match count {
                 _ if *card == Card::Joker => joker_count = count,
                 5 => five_of_a_kind = Some(card),
@@ -106,30 +106,30 @@ impl Hand {
             }
         }
 
-        if five_of_a_kind.is_some() {
+        if four_of_a_kind.is_some() && (joker_count == 1) {
             ScoreType::FiveOfAKind
-        } else if four_of_a_kind.is_some() && (joker_count == 1) {
-            ScoreType::FiveOfAKind
-        } else if four_of_a_kind.is_some() {
+        } else if three_of_a_kind.is_some() && (joker_count == 1) {
             ScoreType::FourOfAKind
         } else if three_of_a_kind.is_some() && (joker_count == 2) {
             ScoreType::FiveOfAKind
-        } else if three_of_a_kind.is_some() && (joker_count == 1) {
+        } else if second_pair.is_some() && (joker_count == 1) {
+            ScoreType::FullHouse
+        } else if first_pair.is_some() && (joker_count == 1) {
+            ScoreType::ThreeOfAKind
+        } else if first_pair.is_some() && (joker_count == 2) {
+            ScoreType::FourOfAKind
+        } else if first_pair.is_some() && (joker_count == 3) {
+            ScoreType::FiveOfAKind
+        } else if five_of_a_kind.is_some() {
+            ScoreType::FiveOfAKind
+        } else if four_of_a_kind.is_some() {
             ScoreType::FourOfAKind
         } else if three_of_a_kind.is_some() && first_pair.is_some() {
             ScoreType::FullHouse
         } else if three_of_a_kind.is_some() {
             ScoreType::ThreeOfAKind
-        } else if second_pair.is_some() && (joker_count == 1) {
-            ScoreType::FullHouse
         } else if second_pair.is_some() {
             ScoreType::TwoPair
-        } else if first_pair.is_some() && (joker_count == 3) {
-            ScoreType::FiveOfAKind
-        } else if first_pair.is_some() && (joker_count == 2) {
-            ScoreType::FourOfAKind
-        } else if first_pair.is_some() && (joker_count == 1) {
-            ScoreType::ThreeOfAKind
         } else if first_pair.is_some() {
             ScoreType::OnePair
         } else if joker_count >= 4 {
@@ -158,9 +158,10 @@ impl Hand {
 
 impl Ord for Hand {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.joker_rule != other.joker_rule {
-            panic!("Both hands have to have the same joker rule");
-        }
+        assert!(
+            !(self.joker_rule != other.joker_rule),
+            "Both hands have to have the same joker rule"
+        );
 
         let mut cmp = self.score_type.cmp(&other.score_type);
 
@@ -229,7 +230,7 @@ mod tests {
             Card::Ace,
         ];
 
-        let result: Vec<Card> = Hand::get_cards(&input, false);
+        let result: Vec<Card> = Hand::get_cards(input, false);
 
         assert_eq!(result, expected);
     }
@@ -252,7 +253,7 @@ mod tests {
 
         let result: Vec<ScoreType> = inputs
             .into_iter()
-            .map(|input| Hand::get_cards(&input, false))
+            .map(|input| Hand::get_cards(input, false))
             .map(|cards| Hand::get_score_type(&cards))
             .collect();
 
@@ -279,7 +280,7 @@ mod tests {
 
         let result: Vec<ScoreType> = inputs
             .into_iter()
-            .map(|input| Hand::get_cards(&input, true))
+            .map(|input| Hand::get_cards(input, true))
             .map(|cards| Hand::get_score_type(&cards))
             .collect();
 

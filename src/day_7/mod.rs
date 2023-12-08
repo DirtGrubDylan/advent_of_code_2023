@@ -16,7 +16,7 @@ pub fn run() {
 fn part_1(hands: &[Hand]) -> u32 {
     let mut hands_sorted = hands.to_vec();
 
-    hands_sorted.sort_by(|a, b| a.cmp(&b));
+    hands_sorted.sort();
 
     hands_sorted
         .into_iter()

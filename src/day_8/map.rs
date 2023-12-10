@@ -97,12 +97,8 @@ impl Map {
     pub fn get_endings_info(&self, start_label: &str, end_ends_with: char) -> EndingsInfo {
         let mut steps = 0;
 
-        let mut instructions_copy: VecDeque<(usize, Instruction)> = self
-            .instructions
-            .iter()
-            .map(|inst| *inst)
-            .enumerate()
-            .collect();
+        let mut instructions_copy: VecDeque<(usize, Instruction)> =
+            self.instructions.iter().copied().enumerate().collect();
         let mut seen_nodes: HashMap<(String, usize), usize> = HashMap::new();
         let mut current_node = self.network.get(start_label).unwrap();
 
@@ -194,7 +190,7 @@ impl EndingsInfo {
 
     fn new(endings_steps: &[usize], repeating_start: usize, repeating_length: usize) -> Self {
         EndingsInfo {
-            endings_steps: endings_steps.into_iter().map(|val| *val).collect(),
+            endings_steps: endings_steps.iter().copied().collect(),
             repeating_start,
             repeating_length,
         }
@@ -202,8 +198,9 @@ impl EndingsInfo {
 
     fn adjust_step(&self, step: usize) -> usize {
         step.checked_sub(self.repeating_start)
-            .map(|value| (value % self.repeating_length) + self.repeating_start)
-            .unwrap_or(step)
+            .map_or(step, |value| {
+                (value % self.repeating_length) + self.repeating_start
+            })
     }
 }
 

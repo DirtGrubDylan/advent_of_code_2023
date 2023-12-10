@@ -33,31 +33,41 @@ where
     first * (second / gcd(first, second))
 }
 
-pub fn extended_euclidean(a: i32, b: i32) -> (i32, i32, i32) {
-    let (mut old_r, mut r) = (a, b);
-    let (mut old_s, mut s) = (1, 0);
-    let (mut old_t, mut t) = (0, 1);
+#[must_use]
+pub fn extended_euclidean(left_coeff: i32, right_coeff: i32) -> (i32, i32, i32) {
+    let (mut old_rem, mut rem) = (left_coeff, right_coeff);
+    let (mut old_s, mut s_coeff) = (1, 0);
+    let (mut old_t, mut t_coeff) = (0, 1);
 
-    while r != 0 {
-        let q = old_r / r;
+    while rem != 0 {
+        let quotient = old_rem / rem;
 
-        (old_r, r) = (r, old_r - q * r);
-        (old_s, s) = (s, old_s - q * s);
-        (old_t, t) = (t, old_t - q * t);
+        (old_rem, rem) = (rem, old_rem - quotient * rem);
+        (old_s, s_coeff) = (s_coeff, old_s - quotient * s_coeff);
+        (old_t, t_coeff) = (t_coeff, old_t - quotient * t_coeff);
     }
 
-    (old_r, old_s, old_t)
+    (old_rem, old_s, old_t)
 }
 
-pub fn min_positive_linear_diophantine(a: i32, b: i32, c: i32) -> Option<(i32, i32)> {
-    let (gcd, xg, yg) = extended_euclidean(a.abs(), b.abs());
+#[must_use]
+#[allow(clippy::cast_possible_truncation)]
+pub fn min_positive_linear_diophantine(
+    left_coeff: i32,
+    right_coeff: i32,
+    diff: i32,
+) -> Option<(i32, i32)> {
+    let (gcd, xg, yg) = extended_euclidean(left_coeff.abs(), right_coeff.abs());
 
-    let (x0, y0) = (xg * c * a.signum() / gcd, yg * c * b.signum() / gcd);
+    let (x0, y0) = (
+        xg * diff * left_coeff.signum() / gcd,
+        yg * diff * right_coeff.signum() / gcd,
+    );
 
-    let max_k_for_positive_y: i32 = (f64::from(y0 * gcd) / f64::from(a)).floor() as i32;
+    let max_k_for_positive_y: i32 = (f64::from(y0 * gcd) / f64::from(left_coeff)).floor() as i32;
 
-    let min_x = x0 + (b / gcd) * max_k_for_positive_y;
-    let max_y = y0 - (a / gcd) * max_k_for_positive_y;
+    let min_x = x0 + (right_coeff / gcd) * max_k_for_positive_y;
+    let max_y = y0 - (left_coeff / gcd) * max_k_for_positive_y;
 
     match (min_x, max_y) {
         (x, y) if (x >= 0) && (y >= 0) => Some((x, y)),

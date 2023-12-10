@@ -17,8 +17,8 @@ fn part_1(map: &Map) -> u32 {
     map.steps_between("AAA", "ZZZ")
 }
 
-fn part_2(_map: &Map) -> u32 {
-    unimplemented!()
+fn part_2(map: &Map) -> u32 {
+    map.steps_between_all('A', 'Z')
 }
 
 #[cfg(test)]

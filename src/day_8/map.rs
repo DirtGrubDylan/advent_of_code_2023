@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::From;
 use std::str::FromStr;
 
@@ -42,9 +42,10 @@ impl Map {
     }
 
     pub fn steps_between(&self, start_label: &str, end_label: &str) -> u32 {
+        let mut steps: u32 = 0;
+
         let mut instructions_copy = self.instructions.clone();
         let mut current_node = self.network.get(start_label);
-        let mut steps: u32 = 0;
 
         while current_node.map_or("", |node| node.label.as_str()) != end_label {
             steps += 1;
@@ -57,6 +58,84 @@ impl Map {
         }
 
         steps
+    }
+
+    pub fn steps_between_all(&self, start_ends_with: char, end_ends_with: char) -> u32 {
+        let mut steps = 0;
+
+        let mut instructions_copy = self.instructions.clone();
+        let mut current_nodes: Vec<&Node> = self
+            .network
+            .iter()
+            .filter(|(label, _)| label.ends_with(start_ends_with))
+            .map(|(_, node)| node)
+            .collect();
+
+        loop {
+            if current_nodes
+                .iter()
+                .all(|node| node.label.ends_with(end_ends_with))
+            {
+                break;
+            }
+
+            steps += 1;
+
+            let instruction = *instructions_copy.front().unwrap();
+
+            current_nodes = current_nodes
+                .iter()
+                .filter_map(|node| self.get_child_node(Some(node), instruction))
+                .collect();
+
+            instructions_copy.rotate_left(1);
+        }
+
+        steps
+    }
+
+    pub fn get_endings_info(&self, start_label: &str, end_ends_with: char) -> EndingsInfo {
+        let mut steps = 0;
+
+        let mut instructions_copy: VecDeque<(usize, Instruction)> = self
+            .instructions
+            .iter()
+            .map(|inst| *inst)
+            .enumerate()
+            .collect();
+        let mut seen_nodes: HashMap<(String, usize), usize> = HashMap::new();
+        let mut current_node = self.network.get(start_label).unwrap();
+
+        let mut instruction_index = instructions_copy.len() - 1;
+
+        while !seen_nodes.contains_key(&(current_node.label.clone(), instruction_index)) {
+            seen_nodes.insert((current_node.label.clone(), instruction_index), steps);
+
+            steps += 1;
+
+            let instruction = instructions_copy.front().unwrap().1;
+
+            instruction_index = instructions_copy.front().unwrap().0;
+
+            current_node = self
+                .get_child_node(Some(current_node), instruction)
+                .unwrap();
+
+            instructions_copy.rotate_left(1);
+        }
+
+        let target_endings_steps: Vec<usize> = seen_nodes
+            .iter()
+            .filter(|((label, _), _)| label.ends_with(end_ends_with))
+            .map(|(_, step)| *step)
+            .collect();
+
+        let repeating_start = *seen_nodes
+            .get(&(current_node.label.clone(), instruction_index))
+            .unwrap();
+        let repeating_length = steps - repeating_start;
+
+        EndingsInfo::new(&target_endings_steps, repeating_start, repeating_length)
     }
 
     fn get_child_node(&self, node_opt: Option<&Node>, instruction: Instruction) -> Option<&Node> {
@@ -98,6 +177,33 @@ impl FromStr for Node {
             }),
             _ => Err(format!("{input} cannot be parsed to a Node!")),
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct EndingsInfo {
+    endings_steps: HashSet<usize>,
+    repeating_start: usize,
+    repeating_length: usize,
+}
+
+impl EndingsInfo {
+    pub fn step_contains_ending(&self, step: usize) -> bool {
+        self.endings_steps.contains(&self.adjust_step(step))
+    }
+
+    fn new(endings_steps: &[usize], repeating_start: usize, repeating_length: usize) -> Self {
+        EndingsInfo {
+            endings_steps: endings_steps.into_iter().map(|val| *val).collect(),
+            repeating_start,
+            repeating_length,
+        }
+    }
+
+    fn adjust_step(&self, step: usize) -> usize {
+        step.checked_sub(self.repeating_start)
+            .map(|value| (value % self.repeating_length) + self.repeating_start)
+            .unwrap_or(step)
     }
 }
 
@@ -213,6 +319,83 @@ mod tests {
         let expected = 2;
 
         let result = map.steps_between("AAA", "ZZZ");
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_map_steps_between_all() {
+        let inputs = [
+            "LR".to_string(),
+            String::new(),
+            "11A = (11B, XXX)".to_string(),
+            "11B = (XXX, 11Z)".to_string(),
+            "11Z = (11B, XXX)".to_string(),
+            "22A = (22B, XXX)".to_string(),
+            "22B = (22C, 22C)".to_string(),
+            "22C = (22Z, 22Z)".to_string(),
+            "22Z = (22B, 22B)".to_string(),
+            "XXX = (XXX, XXX)".to_string(),
+        ];
+
+        let map = Map::new(&inputs);
+
+        let expected = 6;
+
+        let result = map.steps_between_all('A', 'Z');
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_map_get_endings_info() {
+        let inputs = [
+            "LR".to_string(),
+            String::new(),
+            "11A = (11B, XXX)".to_string(),
+            "11B = (XXX, 11Z)".to_string(),
+            "11Z = (11B, XXX)".to_string(),
+            "22A = (22B, XXX)".to_string(),
+            "22B = (22C, 22C)".to_string(),
+            "22C = (22Z, 22Z)".to_string(),
+            "22Z = (22B, 22B)".to_string(),
+            "XXX = (XXX, XXX)".to_string(),
+        ];
+
+        let map = Map::new(&inputs);
+
+        let expected = EndingsInfo::new(&[3, 6], 1, 6);
+
+        let result = map.get_endings_info("22A", 'Z');
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_endings_info_adjust_step() {
+        let input = [0, 1, 3, 5, 13, 22, 49, 50];
+
+        let info = EndingsInfo::new(&[4, 7], 2, 6);
+
+        let expected = vec![0, 1, 3, 5, 7, 4, 7, 2];
+
+        let result: Vec<usize> = input.into_iter().map(|val| info.adjust_step(val)).collect();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_endings_step_contains_ending() {
+        let input = [0, 1, 3, 5, 14, 23, 50, 51];
+
+        let info = EndingsInfo::new(&[5, 8], 3, 6);
+
+        let expected = vec![false, false, false, true, true, true, true, false];
+
+        let result: Vec<bool> = input
+            .into_iter()
+            .map(|val| info.step_contains_ending(val))
+            .collect();
 
         assert_eq!(result, expected);
     }

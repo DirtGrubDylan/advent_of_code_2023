@@ -7,6 +7,7 @@ mod day_4;
 mod day_5;
 mod day_6;
 mod day_7;
+mod day_8;
 
 use std::io::{self, Write};
 
@@ -23,6 +24,7 @@ fn run_day(day: u32) {
         5 => day_5::run(),
         6 => day_6::run(),
         7 => day_7::run(),
+        8 => day_8::run(),
         _ => unimplemented!("I haven't done that day yet :("),
     }
 }

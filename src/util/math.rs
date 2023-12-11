@@ -34,7 +34,7 @@ where
 }
 
 #[must_use]
-pub fn extended_euclidean(left_coeff: i32, right_coeff: i32) -> (i32, i32, i32) {
+pub fn extended_euclidean(left_coeff: i64, right_coeff: i64) -> (i64, i64, i64) {
     let (mut old_rem, mut rem) = (left_coeff, right_coeff);
     let (mut old_s, mut s_coeff) = (1, 0);
     let (mut old_t, mut t_coeff) = (0, 1);
@@ -53,23 +53,35 @@ pub fn extended_euclidean(left_coeff: i32, right_coeff: i32) -> (i32, i32, i32) 
 #[must_use]
 #[allow(clippy::cast_possible_truncation)]
 pub fn min_positive_linear_diophantine(
-    left_coeff: i32,
-    right_coeff: i32,
-    diff: i32,
-) -> Option<(i32, i32)> {
-    let (gcd, xg, yg) = extended_euclidean(left_coeff.abs(), right_coeff.abs());
+    left_coeff: i64,
+    right_coeff: i64,
+    diff_i: i64,
+) -> Option<(i64, i64)> {
+    let (gcd_i, xg_i, yg_i) = extended_euclidean(left_coeff.abs(), right_coeff.abs());
+
+    let (gcd, xg, yg) = ((gcd_i as f64), (xg_i as f64), (yg_i as f64));
+    let diff = diff_i as f64;
 
     let (x0, y0) = (
-        xg * diff * left_coeff.signum() / gcd,
-        yg * diff * right_coeff.signum() / gcd,
+        xg * (diff / gcd) * (left_coeff.signum() as f64),
+        yg * (diff / gcd) * (right_coeff.signum() as f64),
     );
 
-    let max_k_for_positive_y: i32 = (f64::from(y0 * gcd) / f64::from(left_coeff)).floor() as i32;
+    let max_k_for_positive_x: i64 = if right_coeff < 0 {
+        ((x0 * -gcd) / (right_coeff as f64)).floor() as i64
+    } else {
+        i64::MAX
+    };
 
-    let min_x = x0 + (right_coeff / gcd) * max_k_for_positive_y;
-    let max_y = y0 - (left_coeff / gcd) * max_k_for_positive_y;
+    let max_k_for_positive_y: i64 = ((y0 * gcd) / (left_coeff as f64)).floor() as i64;
+
+    let max_k = max_k_for_positive_y.min(max_k_for_positive_x);
+
+    let min_x = (x0 as i64) + (right_coeff / gcd_i) * max_k;
+    let max_y = (y0 as i64) - (left_coeff / gcd_i) * max_k;
 
     match (min_x, max_y) {
+        (0, 0) => None,
         (x, y) if (x >= 0) && (y >= 0) => Some((x, y)),
         _ => None,
     }

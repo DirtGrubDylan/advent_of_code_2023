@@ -62,41 +62,30 @@ impl Map {
         steps
     }
 
-    pub fn steps_between_all(&self, start_ends_with: char, end_ends_with: char) -> u32 {
-        let mut steps = 0;
-
-        let mut instructions_copy = self.instructions.clone();
-        let mut current_nodes: Vec<&Node> = self
+    pub fn steps_between_all(&self, start_ends_with: char, end_ends_with: char) -> usize {
+        let starting_nodes: Vec<String> = self
             .network
-            .iter()
-            .filter(|(label, _)| label.ends_with(start_ends_with))
-            .map(|(_, node)| node)
+            .keys()
+            .filter(|label| label.ends_with(start_ends_with))
+            .map(|label| label.to_string())
             .collect();
 
-        loop {
-            if current_nodes
-                .iter()
-                .all(|node| node.label.ends_with(end_ends_with))
-            {
-                break;
-            }
+        let endings_per_start: Vec<EndingsInfo> = starting_nodes
+            .iter()
+            .map(|start| self.get_endings_info(start, end_ends_with))
+            .collect();
 
-            steps += 1;
+        let final_endings_info = endings_per_start
+            .iter()
+            .skip(1)
+            .fold(endings_per_start.first().unwrap().clone(), |acc, ending| {
+                acc.intersection(ending)
+            });
 
-            let instruction = *instructions_copy.front().unwrap();
-
-            current_nodes = current_nodes
-                .iter()
-                .filter_map(|node| self.get_child_node(Some(node), instruction))
-                .collect();
-
-            instructions_copy.rotate_left(1);
-        }
-
-        steps
+        final_endings_info.min().unwrap()
     }
 
-    pub fn get_endings_info(&self, start_label: &str, end_ends_with: char) -> EndingsInfo {
+    fn get_endings_info(&self, start_label: &str, end_ends_with: char) -> EndingsInfo {
         let mut steps = 0;
 
         let mut instructions_copy: VecDeque<(usize, Instruction)> =
@@ -178,7 +167,7 @@ impl FromStr for Node {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EndingsInfo {
     endings_steps: HashSet<usize>,
     repeating_start: usize,
@@ -186,51 +175,60 @@ pub struct EndingsInfo {
 }
 
 impl EndingsInfo {
-    pub fn step_contains_ending(&self, step: usize) -> bool {
-        self.endings_steps.contains(&self.adjust_step(step))
-    }
-
     pub fn intersection(&self, other: &Self) -> Self {
         let new_length = math::lcm(self.repeating_length, other.repeating_length);
-        let mut new_start = None;
+        let new_start = self.repeating_start.max(other.repeating_start);
 
-        let mut first_intersecting_steps: Vec<usize> = Vec::new();
-
-        for step in self.ending_steps {
-            let new_step = if step < &self.repeating_length {
-                other.first_step_intersection_from_all(step, 0)
-            } else {
-                let temp = other.first_step_intersection_from_all(step, self.repeating_length);
-
-                new_start = new_start.map(|value| value.min(temp));
-
-                temp
-            };
-
-            if new_step
-            first_intersecting_steps.push(new_step);
-        }
+        let first_intersecting_steps: Vec<usize> = self
+            .endings_steps
+            .iter()
+            .map(|&step| {
+                if step < self.repeating_start {
+                    (step, 0)
+                } else {
+                    (step, self.repeating_length)
+                }
+            })
+            .flat_map(|(step, repeated)| other.first_step_intersection_from_all(step, repeated))
+            .collect();
 
         EndingsInfo::new(&first_intersecting_steps, new_start, new_length)
     }
 
+    pub fn min(&self) -> Option<usize> {
+        self.endings_steps.iter().copied().min()
+    }
+
     fn new(endings_steps: &[usize], repeating_start: usize, repeating_length: usize) -> Self {
         EndingsInfo {
-            endings_steps: endings_steps.iter().copied().collect(),
+            endings_steps: endings_steps
+                .iter()
+                .map(|&step| Self::adjusted_step(step, repeating_start, repeating_length))
+                .collect(),
             repeating_start,
             repeating_length,
         }
     }
 
-    fn adjust_step(&self, step: usize) -> usize {
-        step.checked_sub(self.repeating_start)
-            .map_or(step, |value| {
-                (value % self.repeating_length) + self.repeating_start
+    fn first_step_intersection_from_all(&self, step: usize, step_repeated: usize) -> Vec<usize> {
+        self.endings_steps
+            .iter()
+            .map(|&ending| {
+                if ending < self.repeating_start {
+                    (ending, 0)
+                } else {
+                    (ending, self.repeating_length)
+                }
             })
+            .filter_map(|(ending, repeated)| {
+                Self::first_step_intersection(step, step_repeated, ending, repeated)
+            })
+            .collect()
     }
 
-    fn first_step_intersection_from_all(&self, step: usize, step_repeated: usize) -> Option<usize> {
-        unimplemented!()
+    fn adjusted_step(step: usize, repeating_start: usize, repeating_length: usize) -> usize {
+        step.checked_sub(repeating_start)
+            .map_or(step, |value| (value % repeating_length) + repeating_start)
     }
 
     #[allow(clippy::cast_sign_loss)]
@@ -240,15 +238,26 @@ impl EndingsInfo {
         second_step: usize,
         second_repeated: usize,
     ) -> Option<usize> {
-        let step_diff = second_step.abs_diff(first_step);
+        if (first_repeated == 0) && (second_repeated != 0) && (second_step > first_step) {
+            None
+        } else if (second_repeated == 0) && (first_repeated != 0) && (first_step > second_step) {
+            None
+        } else if (first_repeated != 0) || (second_repeated != 0) {
+            let step_diff =
+                i64::try_from(second_step).unwrap() - i64::try_from(first_step).unwrap();
 
-        let repeations = math::min_positive_linear_diophantine(
-            i32::try_from(first_repeated).unwrap(),
-            -i32::try_from(second_repeated).unwrap(),
-            i32::try_from(step_diff).unwrap(),
-        );
+            let repeations = math::min_positive_linear_diophantine(
+                i64::try_from(first_repeated).unwrap(),
+                -i64::try_from(second_repeated).unwrap(),
+                step_diff,
+            );
 
-        repeations.map(|(first_r, _)| first_step + (first_r as usize) * first_repeated)
+            repeations.map(|(first_r, _)| first_step + (first_r as usize) * first_repeated)
+        } else if first_step == second_step {
+            Some(first_step)
+        } else {
+            None
+        }
     }
 }
 
@@ -417,29 +426,14 @@ mod tests {
     }
 
     #[test]
-    fn test_endings_info_adjust_step() {
+    fn test_endings_info_adjusted_step() {
         let input = [0, 1, 3, 5, 13, 22, 49, 50];
-
-        let info = EndingsInfo::new(&[4, 7], 2, 6);
 
         let expected = vec![0, 1, 3, 5, 7, 4, 7, 2];
 
-        let result: Vec<usize> = input.into_iter().map(|val| info.adjust_step(val)).collect();
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_endings_step_contains_ending() {
-        let input = [0, 1, 3, 5, 14, 23, 50, 51];
-
-        let info = EndingsInfo::new(&[5, 8], 3, 6);
-
-        let expected = vec![false, false, false, true, true, true, true, false];
-
-        let result: Vec<bool> = input
+        let result: Vec<usize> = input
             .into_iter()
-            .map(|val| info.step_contains_ending(val))
+            .map(|val| EndingsInfo::adjusted_step(val, 2, 6))
             .collect();
 
         assert_eq!(result, expected);
@@ -448,9 +442,21 @@ mod tests {
     #[test]
     fn test_endings_intersection() {
         let info_1 = EndingsInfo::new(&[4, 6], 5, 3);
-        let info_2 = EndingsInfo::new(&[32, 50], 45, 50);
+        let info_2 = EndingsInfo::new(&[4, 30, 50], 45, 50);
 
-        let expected = EndingsInfo::new(&[150], 150, 150);
+        let expected = EndingsInfo::new(&[4, 30, 150], 45, 150);
+
+        let result = info_1.intersection(&info_2);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_endings_intersection_2() {
+        let info_1 = EndingsInfo::new(&[2], 1, 2);
+        let info_2 = EndingsInfo::new(&[3, 6], 1, 6);
+
+        let expected = EndingsInfo::new(&[6], 1, 6);
 
         let result = info_1.intersection(&info_2);
 

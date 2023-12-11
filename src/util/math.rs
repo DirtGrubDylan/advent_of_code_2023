@@ -51,7 +51,11 @@ pub fn extended_euclidean(left_coeff: i64, right_coeff: i64) -> (i64, i64, i64) 
 }
 
 #[must_use]
-#[allow(clippy::cast_possible_truncation)]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::similar_names
+)]
 pub fn min_positive_linear_diophantine(
     left_coeff: i64,
     right_coeff: i64,

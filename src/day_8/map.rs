@@ -67,7 +67,7 @@ impl Map {
             .network
             .keys()
             .filter(|label| label.ends_with(start_ends_with))
-            .map(|label| label.to_string())
+            .cloned()
             .collect();
 
         let endings_per_start: Vec<EndingsInfo> = starting_nodes
@@ -238,9 +238,11 @@ impl EndingsInfo {
         second_step: usize,
         second_repeated: usize,
     ) -> Option<usize> {
-        if (first_repeated == 0) && (second_repeated != 0) && (second_step > first_step) {
-            None
-        } else if (second_repeated == 0) && (first_repeated != 0) && (first_step > second_step) {
+        let first_cant_intersect = (first_repeated == 0) && (second_repeated != 0) && (second_step > first_step);
+        let second_cant_intersect = (second_repeated == 0) && (first_repeated != 0) && (first_step > second_step);
+        let neither_intersect = (first_repeated == 0) && (second_repeated == 0) && (first_step != second_step);
+
+        if first_cant_intersect || second_cant_intersect || neither_intersect {
             None
         } else if (first_repeated != 0) || (second_repeated != 0) {
             let step_diff =
@@ -252,12 +254,11 @@ impl EndingsInfo {
                 step_diff,
             );
 
-            repeations.map(|(first_r, _)| first_step + (first_r as usize) * first_repeated)
-        } else if first_step == second_step {
-            Some(first_step)
+            repeations
+                .map(|(first_r, _)| first_step + usize::try_from(first_r).unwrap() * first_repeated)
         } else {
-            None
-        }
+            Some(first_step)
+        } 
     }
 }
 

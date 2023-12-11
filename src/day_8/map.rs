@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::From;
 use std::str::FromStr;
 
+use crate::util::math;
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Instruction {
     Left,
@@ -188,6 +190,30 @@ impl EndingsInfo {
         self.endings_steps.contains(&self.adjust_step(step))
     }
 
+    pub fn intersection(&self, other: &Self) -> Self {
+        let new_length = math::lcm(self.repeating_length, other.repeating_length);
+        let mut new_start = None;
+
+        let mut first_intersecting_steps: Vec<usize> = Vec::new();
+
+        for step in self.ending_steps {
+            let new_step = if step < &self.repeating_length {
+                other.first_step_intersection_from_all(step, 0)
+            } else {
+                let temp = other.first_step_intersection_from_all(step, self.repeating_length);
+
+                new_start = new_start.map(|value| value.min(temp));
+
+                temp
+            };
+
+            if new_step
+            first_intersecting_steps.push(new_step);
+        }
+
+        EndingsInfo::new(&first_intersecting_steps, new_start, new_length)
+    }
+
     fn new(endings_steps: &[usize], repeating_start: usize, repeating_length: usize) -> Self {
         EndingsInfo {
             endings_steps: endings_steps.iter().copied().collect(),
@@ -201,6 +227,28 @@ impl EndingsInfo {
             .map_or(step, |value| {
                 (value % self.repeating_length) + self.repeating_start
             })
+    }
+
+    fn first_step_intersection_from_all(&self, step: usize, step_repeated: usize) -> Option<usize> {
+        unimplemented!()
+    }
+
+    #[allow(clippy::cast_sign_loss)]
+    fn first_step_intersection(
+        first_step: usize,
+        first_repeated: usize,
+        second_step: usize,
+        second_repeated: usize,
+    ) -> Option<usize> {
+        let step_diff = second_step.abs_diff(first_step);
+
+        let repeations = math::min_positive_linear_diophantine(
+            i32::try_from(first_repeated).unwrap(),
+            -i32::try_from(second_repeated).unwrap(),
+            i32::try_from(step_diff).unwrap(),
+        );
+
+        repeations.map(|(first_r, _)| first_step + (first_r as usize) * first_repeated)
     }
 }
 
@@ -393,6 +441,37 @@ mod tests {
             .into_iter()
             .map(|val| info.step_contains_ending(val))
             .collect();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_endings_intersection() {
+        let info_1 = EndingsInfo::new(&[4, 6], 5, 3);
+        let info_2 = EndingsInfo::new(&[32, 50], 45, 50);
+
+        let expected = EndingsInfo::new(&[150], 150, 150);
+
+        let result = info_1.intersection(&info_2);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_endings_first_step_intersection() {
+        let first_step = 6;
+        let first_step_repeats = 3;
+        let second_step = 50;
+        let second_step_repeats = 50;
+
+        let expected = Some(150);
+
+        let result = EndingsInfo::first_step_intersection(
+            first_step,
+            first_step_repeats,
+            second_step,
+            second_step_repeats,
+        );
 
         assert_eq!(result, expected);
     }

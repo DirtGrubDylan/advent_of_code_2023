@@ -140,9 +140,7 @@ impl PipeNetwork {
         let west_location = start_pipe.next_location_going(Direction::West).unwrap();
 
         let mut can_go_north = self.start_y_location != 0;
-        // let mut can_go_south = self.start_y_location < self.network.len();
         let mut can_go_west = self.start_x_location != 0;
-        // let mut can_go_west = self.start_x_location < self.network.get(0).unwrap().len();
 
         let north_pipe = if can_go_north {
             self.get_pipe(north_location.0, north_location.1)

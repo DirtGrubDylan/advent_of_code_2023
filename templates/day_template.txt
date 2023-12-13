@@ -1,0 +1,17 @@
+use crate::util::file_reader::to_string_vector;
+
+pub fn run() {
+    let _input = to_string_vector("inputs/day_{day}.txt").expect("Something went wrong Day {day}!");
+
+    unimplemented!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        unimplemented!()
+    }
+}
